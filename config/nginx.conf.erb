@@ -32,14 +32,14 @@ http {
 		server 127.0.0.1:8080 fail_timeout=0;
 	}
 
-	# Default server: reject any Host we do not explicitly allow.
-	# This blocks direct access via airbase-metabase-*.herokuapp.com and
-	# raw-IP probes, forcing all real traffic through Cloudflare Access on
-	# metabase.airbase.io.
+	# Default server: any Host we do not explicitly allow (the
+	# airbase-metabase-*.herokuapp.com default domain, raw-IP probes, etc.)
+	# is redirected to the canonical Cloudflare-fronted hostname. No app
+	# content is ever served from these Hosts.
 	server {
 		listen <%= ENV["PORT"] %> default_server;
 		server_name _;
-		return 403;
+		return 301 https://metabase.airbase.io$request_uri;
 	}
 
 	# Only serve traffic addressed to the Cloudflare-fronted hostname.
