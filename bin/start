@@ -7,9 +7,11 @@ set -e
 
 # Translate various Heroku environment variables to Metabase equivalents
 
-if [ "$PORT" ]; then
-    export MB_JETTY_PORT="$PORT"
-fi
+# Metabase runs behind nginx (see Procfile + config/nginx.conf.erb).
+# nginx binds Heroku's $PORT; Metabase listens on an internal loopback port
+# that only nginx can reach, so the app is never served directly.
+export MB_JETTY_HOST="127.0.0.1"
+export MB_JETTY_PORT="${METABASE_INTERNAL_PORT:-8080}"
 
 # Heroku Postgres
 if [ "$DATABASE_URL" ]; then
