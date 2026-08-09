@@ -1,0 +1,64 @@
+daemon off;
+# heroku-community/nginx buildpack sets NGINX_WORKERS; default to number of CPUs.
+worker_processes <%= ENV['NGINX_WORKERS'] || 4 %>;
+
+events {
+	use epoll;
+	accept_mutex on;
+	worker_connections <%= ENV['NGINX_WORKER_CONNECTIONS'] || 1024 %>;
+}
+
+http {
+	gzip on;
+	gzip_comp_level 2;
+	gzip_min_length 512;
+	gzip_proxied any;
+
+	server_tokens off;
+
+	log_format l2met 'measure#nginx.service=$request_time request_id=$http_x_request_id';
+	access_log <%= ENV['NGINX_ACCESS_LOG_PATH'] || 'logs/nginx/access.log' %> l2met;
+	error_log <%= ENV['NGINX_ERROR_LOG_PATH'] || 'logs/nginx/error.log' %>;
+
+	include mime.types;
+	default_type application/octet-stream;
+	sendfile on;
+
+	client_body_timeout 10;
+	client_max_body_size 100M;
+
+	# Metabase (Jetty) runs on an internal loopback port; see bin/start.
+	upstream metabase {
+		server 127.0.0.1:8080 fail_timeout=0;
+	}
+
+	# Default server: any Host we do not explicitly allow (the
+	# airbase-metabase-*.herokuapp.com default domain, raw-IP probes, etc.)
+	# is redirected to the canonical Cloudflare-fronted hostname. No app
+	# content is ever served from these Hosts.
+	server {
+		listen <%= ENV["PORT"] %> default_server;
+		server_name _;
+		return 301 https://metabase.airbase.io$request_uri;
+	}
+
+	# Only serve traffic addressed to the Cloudflare-fronted hostname.
+	server {
+		listen <%= ENV["PORT"] %>;
+		server_name metabase.airbase.io;
+
+		keepalive_timeout 5;
+
+		location / {
+			proxy_pass http://metabase;
+			proxy_http_version 1.1;
+			proxy_set_header Host $host;
+			proxy_set_header X-Real-IP $remote_addr;
+			proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+			proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+			proxy_set_header Upgrade $http_upgrade;
+			proxy_set_header Connection $http_connection;
+			proxy_redirect off;
+		}
+	}
+}

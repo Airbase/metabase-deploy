@@ -18,10 +18,13 @@
   ],
   "buildpacks": [
     {
+      "url": "https://github.com/Airbase/metabase-buildpack"
+    },
+    {
       "url": "heroku/jvm"
     },
     {
-      "url": "https://github.com/metabase/metabase-buildpack"
+      "url": "heroku-community/nginx"
     }
   ]
 }
